@@ -1,9 +1,16 @@
 #!/usr/bin/env python
 
-import nest
+#import nest
+import ConfigParser
 
-username = 'sprzeo@gmail.com'
-password = #change to password
+config = ConfigParser.ConfigParser()
+config.read("credentials.config")
+
+
+username = config.get('credentials','username')
+password = config.get('credentials','password')
+print username
+print password
 
 napi = nest.Nest(username, password)
 
