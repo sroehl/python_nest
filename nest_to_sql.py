@@ -18,8 +18,17 @@ password = config.get('credentials','password')
 napi = nest.Nest(username, password)
 home = napi.structures[0]
 
+
+def alreadyInserted(curr_time):
+	cur.execute('select count(*) from data where time="%s"' % (curr_time))
+	count = cur.fetchone()[0]
+	if count > 0:
+		return True
+	else:
+		return False
+
 while 1:
-	print "running"
+	#print "running"
 	napi = nest.Nest(username, password)
 	home = napi.structures[0]
 	curr_time = home.weather.current.datetime.strftime('%Y-%m-%d %H:%M:%S')
@@ -42,8 +51,9 @@ while 1:
 		mode = 1
 		
 	#print 'insert into data values ("%s",%d,%d,%d,%d,%i,%i,%i)' % (curr_time,temp,outside_temp,humidity,outside_humidity,away,fan,mode)
-
-	cur.execute('insert into data values ("%s",%d,%d,%d,%d,%i,%i,%i)' % (curr_time,temp,outside_temp,humidity,outside_humidity,away,fan,mode))
-	conn.commit()
+	
+	if not alreadyInserted(curr_time):
+		cur.execute('insert into data values ("%s",%d,%d,%d,%d,%i,%i,%i)' % (curr_time,temp,outside_temp,humidity,outside_humidity,away,fan,mode))
+		conn.commit()
 	time.sleep(60)
 
