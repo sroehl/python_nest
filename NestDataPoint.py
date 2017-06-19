@@ -17,10 +17,14 @@ class NestDataPoint:
     STATE_COOL = 2
 
     def insert_to_sql(self, cursor):
-        cursor.execute('insert into data values (?, ?, ?, ?, ?, ?, ?, ?)', (
-            self.time, self.temp, self.target_temp, self.humidity, self.away, self.fan, self.mode, self.state))
+        cursor.execute('insert into data values (?, ?, ?, ?, ?, ?, ?, ?, ?)', (
+            self.time, self.temp, self.target_temp, self.humidity, self.away, self.fan, self.mode, self.state,
+                       self.outside_temp))
 
-    def __init__(self, time, temp, target_temp, humidity, away, fan, mode, state):
+    def __init__(self, row):
+        self(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7])
+
+    def __init__(self, time, temp, target_temp, humidity, away, fan, mode, state, outside_temp):
         self.time = time
         self.temp = temp
         self.target_temp = target_temp
@@ -29,3 +33,4 @@ class NestDataPoint:
         self.fan = fan
         self.mode = mode
         self.state = state
+        self.outside_temp = outside_temp

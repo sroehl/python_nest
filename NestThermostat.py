@@ -19,15 +19,23 @@ class NestThermostat:
 
     def get_state(self):
         raw_value = self.get_thermo_value('hvac_state')
-        print(raw_value)
         if raw_value == 'off':
             return NestDataPoint.STATE_OFF
         elif raw_value == 'heating':
             return NestDataPoint.STATE_HEAT
         elif raw_value == 'cooling':
             return NestDataPoint.STATE_COOL
+
     def get_mode(self):
-        return self.get_thermo_value('hvac_mode')
+        raw_value = self.get_thermo_value('hvac_mode')
+        if raw_value == 'off':
+            return NestDataPoint.MODE_OFF
+        elif raw_value == 'heat':
+            return NestDataPoint.MODE_HEAT
+        elif raw_value == 'cool':
+            return NestDataPoint.MODE_COOL
+        elif raw_value == 'eco':
+            return NestDataPoint.MODE_ECO
 
     def get_fan_status(self):
         raw_value = self.get_thermo_value('fan_timer_active')
@@ -60,19 +68,29 @@ class NestThermostat:
             return None
 
     def update_data(self):
-        if time.time() - self.UPDATE_INTERVAL > self.last_ret_time:
-            self.data = read_data(self.token)
-            self.last_ret_time = time.time()
+        self.data = read_data(self.token)
+        self.last_ret_time = round(time.time())
+
+    def get_outside_temp(self):
+        weather_data = get_weather_data(self.zipcode)
+        temp = weather_data['main']['temp']
+        return round(temp) # Rounding because data from Nest is less accurate
 
     def get_datapoint(self):
         self.update_data()
         dp = NestDataPoint(self.last_ret_time, self.get_inside_temp(), self.get_target_temp(), self.get_humidity(),
-                           self.get_away_status(), self.get_fan_status(), self.get_mode(), self.get_state())
-        return dp;
+                           self.get_away_status(), self.get_fan_status(), self.get_mode(), self.get_state(),
+                           self.get_outside_temp())
+        return dp
 
-    def __init__(self, token=None):
+    def __init__(self, zipcode, token=None):
         if token is None:
             self.token = get_token()
-        self.last_ret_time = time.time() - self.UPDATE_INTERVAL - 1
+        else:
+            self.token = token
+        if self.token is None:
+            raise Exception("Token is not defined")
+        self.last_ret_time = 0
         self.data = {}
         self.update_data()
+        self.zipcode = zipcode
