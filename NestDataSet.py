@@ -18,35 +18,44 @@ class NestDataSet:
         return times
 
     def get_temps(self):
-        dataset = []
-        for point in self.points:
-            structTime = time.localtime(int(point.time))
-            dataset.append((datetime.datetime(*structTime[:6]), point.temp))
-        return dataset
+        return self.get_values('temp')
 
     def get_target_temps(self):
-        dataset = []
-        for point in self.points:
-            structTime = time.localtime(int(point.time))
-            dataset.append((datetime.datetime(*structTime[:6]), point.target_temp))
-        return dataset
+        return self.get_values('target_temp')
 
     def get_outside_temps(self):
-        dataset = []
-        for point in self.points:
-            structTime = time.localtime(int(point.time))
-            dataset.append((datetime.datetime(*structTime[:6]), point.outside_temp))
-        return dataset
+        return self.get_values('outside_temp')
 
     def get_states(self):
-        dataset = []
+        dataset = self.get_values('state')
+        modified_dataset = []
         min_range = self.get_min_range()
-        for point in self.points:
-            structTime = time.localtime(int(point.time))
-            if point.state != NestDataPoint.STATE_OFF:
-                dataset.append((datetime.datetime(*structTime[:6]), min_range-1))
+        for point in dataset:
+            if point[1] != NestDataPoint.STATE_OFF:
+                modified_dataset.append((point[0], min_range-1))
             else:
-                dataset.append((datetime.datetime(*structTime[:6]), min_range-2))
+                modified_dataset.append((point[0], min_range-2))
+        return modified_dataset
+
+    def get_values(self, attribute):
+        dataset = []
+        if len(self.points) > 3:
+            for i in range(0, len(self.points)):
+                point = self.points[i]
+                if i == 0 or i+1 >= len(self.points):
+                    structTime = time.localtime(int(point.time))
+                    dataset.append((datetime.datetime(*structTime[:6]), getattr(point, attribute)))
+                else:
+                    prev_point = self.points[i-1]
+                    next_point = self.points[i+1]
+                    if getattr(prev_point, attribute) != getattr(next_point, attribute):
+                        structTime = time.localtime(int(point.time))
+                        dataset.append((datetime.datetime(*structTime[:6]), getattr(point, attribute)))
+        else:
+            for point in self.points:
+                structTime = time.localtime(int(point.time))
+                dataset.append((datetime.datetime(*structTime[:6]), getattr(point, attribute)))
+        print("attribute {} has length of {}".format(attribute, len(dataset)))
         return dataset
 
     def get_min_temp(self):

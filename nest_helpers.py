@@ -1,10 +1,29 @@
 import http.client
 from urllib.parse import urlparse
 import json
+import sys
 
-CLIENT_ID = #REPLACE WITH CLIENTID
-CLIENT_SECRET = #REPLACE WITH CLIENTSECRET
-AUTH_CODE = #REPLACE WITH AUTHCODE FROM AUTH WEBSITE
+
+def read_config():
+    client_id = ''
+    client_secret = ''
+    auth_code = ''
+    try:
+        with open('config.cfg', 'r') as config_file:
+            line = config_file.readline()
+            key, value = line.split(':')
+            if key == 'CLIENT_ID':
+                client_id = value
+            elif key == 'CLIENT_SECRET':
+                client_secret = value
+            elif key == 'AUTH_CODE':
+                auth_code = value
+    except FileNotFoundError:
+        print('config.cfg file was not found containing client_id, client_secret, and auth_code')
+    if client_id == '' or client_secret == '' or auth_code == '':
+        print('client_id, client_secret, and/or auth_code not correctly set.\nExiting...')
+        sys.exit(-1)
+    return client_id, client_secret, auth_code
 
 
 def get_token(client_id, client_secret, auth_code):
@@ -40,7 +59,8 @@ def read_token_from_file():
 def get_token():
     token = read_token_from_file()
     if token is None:
-        token = get_token(CLIENT_ID, CLIENT_SECRET, AUTH_CODE)
+        read_config()
+        token = get_token(read_config())
     return token
 
 
