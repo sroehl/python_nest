@@ -2,30 +2,27 @@ import pygal
 import sqlite3
 from NestDataPoint import NestDataPoint
 from NestDataSet import NestDataSet
+import time
 
 
-
-def load_data():
+def load_data(start_time=None, end_time=None):
+    if start_time is None:
+        start_time = round(time.time()) - (60*60*24*7)
+    if end_time is None:
+        end_time = round(time.time())
     data_set = NestDataSet()
     conn = sqlite3.connect('nest_data.db')
     cur = conn.cursor()
-    prev_temp = 0
-    prev_target_temp = 0
-    prev_state = 0
-    prev_outside_temp = 0
-    for row in cur.execute('select * from data order by time'):
-        time, temp, target_temp, humidity, away, fan, mode, state, outside_temp = row
-        #  This changes the graph too much
-        #if temp != prev_temp or target_temp != prev_target_temp or state != prev_state or outside_temp != prev_outside_temp:
-        data_set.add_point(NestDataPoint(time, temp, target_temp, humidity, away, fan, mode, state, outside_temp))
-        prev_temp = temp
-        prev_target_temp = target_temp
-        prev_state = state
-        prev_outside_temp = outside_temp
+    stmt = 'select * from data where time >= ? and time <= ? order by time'
+    for row in cur.execute(stmt, (start_time, end_time)):
+        row_time, temp, target_temp, humidity, away, fan, mode, state, outside_temp = row
+        data_set.add_point(NestDataPoint(row_time, temp, target_temp, humidity, away, fan, mode, state, outside_temp))
+
     print("dataset length: {}".format(len(data_set)))
     return data_set
 
-def make_line_chart(data_set, file=False):
+
+def make_line_chart(data_set, filename=None):
     config = pygal.Config()
     config.defs.append('''<linearGradient id="gradient-3" x1="0" x2="0" y1="0" y2="1">
         <stop offset="0%" stop-color="#ffffff" />
@@ -45,11 +42,11 @@ def make_line_chart(data_set, file=False):
     line_chart.add('Target Temp', data_set.get_target_temps(), show_dots=True)
     line_chart.add('Outside Temp', data_set.get_outside_temps(), show_dots=True)
     line_chart.add('State', data_set.get_states(), fill=True, show_dots=True)
-    if file:
-        line_chart.render_to_file('chart.svg')
+    if filename is not None:
+        line_chart.render_to_file(filename)
     else:
         return line_chart.render()
 
 if __name__ == '__main__':
     ds = load_data()
-    make_line_chart(ds, file=True)
+    make_line_chart(ds, filename='weekly.svg')
