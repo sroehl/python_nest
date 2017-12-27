@@ -1,6 +1,7 @@
 from NestDataPoint import NestDataPoint
 import time
 import datetime
+from operator import itemgetter
 
 
 class NestDataSet:
@@ -92,6 +93,9 @@ class NestDataSet:
             if point.outside_temp < min:
                 min = point.outside_temp
         return min-1
+
+    def sort(self):
+       self.points = sorted(self.points, key=lambda x: x.time)
 
     def __init__(self):
         self.points = []

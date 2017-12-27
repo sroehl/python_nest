@@ -25,7 +25,7 @@ class NestDataPoint:
         self(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7])
 
     def __init__(self, time, temp, target_temp, humidity, away, fan, mode, state, outside_temp):
-        self.time = time
+        self.time = int(time)
         self.temp = temp
         self.target_temp = target_temp
         self.humidity = humidity

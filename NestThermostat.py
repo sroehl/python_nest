@@ -83,9 +83,12 @@ class NestThermostat:
                            self.get_outside_temp())
         return dp
 
-    def __init__(self, zipcode, token=None):
+    def __init__(self, zipcode, lambda_id=None, token=None):
         if token is None:
-            self.token = get_token()
+            if lambda_id is None:
+                self.token = get_token()
+            else:
+                self.token = get_token_from_dynamo(lambda_id)
         else:
             self.token = token
         if self.token is None:

@@ -4,7 +4,7 @@ import sqlite3
 import time
 import sys
 
-CHECK_INTERVAL = 60
+CHECK_INTERVAL = 30 
 ZIP_CODE = '53511'
 
 conn = sqlite3.connect('nest_data.db')

@@ -1,26 +1,27 @@
 import pygal
-import sqlite3
+import boto3
 from NestDataPoint import NestDataPoint
 from NestDataSet import NestDataSet
-from dynamodb_load_data import load_data_dynamodb
 import time
-import math
 
 
-def load_data(start_time=None, end_time=None, days=7):
+def load_data(id, start_time=None, end_time=None):
     if start_time is None:
-        start_time = round(time.time()) - (60*60*24*days)
+        start_time = round(time.time()) - (60*60*24*7)
     if end_time is None:
         end_time = round(time.time())
     data_set = NestDataSet()
-    conn = sqlite3.connect('nest_data.db')
-    cur = conn.cursor()
-    stmt = 'select * from data where time >= ? and time <= ? order by time'
-    for row in cur.execute(stmt, (start_time, end_time)):
-        row_time, temp, target_temp, humidity, away, fan, mode, state, outside_temp = row
-        data_set.add_point(NestDataPoint(row_time, temp, target_temp, humidity, away, fan, mode, state, outside_temp))
-
-    print("dataset length: {}".format(len(data_set)))
+    try:
+        dynamodb = boto3.resource('dynamodb')
+        table = dynamodb.Table('HomeTempItems')
+        #result = table.scan(FilterExpression=Attr('id').eq(id) & Attr('date').gt(start_time) & Attr('date').lt(end_time))
+        result = table.scan()
+        items = result['Items']
+        for item in items:
+            data_set.add_point(NestDataPoint(item['date'], float(item['temp']), float(item['target_temp']), float(item['humidity']), item['away'], item['fan'], item['mode'], item['state'], float(item['outside_temp'])))
+        #print("dataset length: {}".format(len(data_set)))
+    except Exception as ex:
+        print("failure: {}".format(ex))
     return data_set
 
 
@@ -49,20 +50,9 @@ def make_line_chart(data_set, filename=None):
     else:
         return line_chart.render()
 
-def make_plain_line_chart(data_set, title, x_title, y_title, filename=None):
-    xy_chart = pygal.XY(stroke=False, title=title, x_title=x_title, y_title=y_title)
-    x = []
-    y = []
-    for row in data_set:
-        x.append(row[0])
-        y.append(row[1])
-    xy_chart.add('', data_set)
-    if filename is not None:
-        xy_chart.render_to_file(filename)
-    else:
-        return xy_chart.render()
-
-
-if __name__ == '__main__':
-    ds = load_data_dynamodb()
-    make_line_chart(ds, filename='weekly.svg')
+def create_graph():
+    ds = load_data(0)
+    make_line_chart(ds, filename='/tmp/weekly.svg')
+    client = boto3.client('s3')
+    with open('/tmp/weekly.svg', 'rb') as f:
+        client.upload_fileobj(f, 'aws-website-housetemperaturetracker-w8nyd', 'weekly.svg')

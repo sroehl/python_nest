@@ -2,6 +2,7 @@ import http.client
 from urllib.parse import urlparse
 import json
 import sys
+import boto3
 
 
 def read_config():
@@ -10,23 +11,42 @@ def read_config():
     auth_code = ''
     try:
         with open('config.cfg', 'r') as config_file:
-            line = config_file.readline()
-            key, value = line.split(':')
-            if key == 'CLIENT_ID':
-                client_id = value
-            elif key == 'CLIENT_SECRET':
-                client_secret = value
-            elif key == 'AUTH_CODE':
-                auth_code = value
-    except FileNotFoundError:
-        print('config.cfg file was not found containing client_id, client_secret, and auth_code')
+            for line in config_file:
+                key, value = line.split(':')
+                if key == 'CLIENT_ID':
+                    client_id = value
+                elif key == 'CLIENT_SECRET':
+                    client_secret = value
+                elif key == 'AUTH_CODE':
+                    auth_code = value
+    except FileNotFoundError as ex:
+        print('config.cfg file was not found containing client_id, client_secret, and auth_code: {}'.format(ex))
+    if client_id == '' or client_secret == '' or auth_code == '':
+        print('client_id, client_secret, and/or auth_code not correctly set in file.\nExiting...')
+        sys.exit(-1)
+    return client_id, client_secret, auth_code
+
+def read_config_from_dynamo(id):
+    client_id = ''
+    client_secret = ''
+    auth_code = ''
+    try:
+        dynamodb = boto3.resource('dynamodb')
+        table = dynamodb.Table('HomeTempConfig')
+        result = table.get_item(TableName='HomeTempConfig', Key={'id':id})
+        if 'Item' in result:
+            client_id = result['Item']['client_id']
+            client_secret = result['Item']['client_secret']
+            auth_code = result['Item']['auth_code']
+    except Exception as ex:
+        print('Could not find record containing client_id, client_secret, and auth_code: {}'.format(ex))
     if client_id == '' or client_secret == '' or auth_code == '':
         print('client_id, client_secret, and/or auth_code not correctly set.\nExiting...')
         sys.exit(-1)
     return client_id, client_secret, auth_code
 
 
-def get_token(client_id, client_secret, auth_code):
+def get_token_from_nest(client_id, client_secret, auth_code, is_lambda=False):
     conn = http.client.HTTPSConnection("api.home.nest.com")
     payload = "code={}&client_id={}&client_secret={}&grant_type=authorization_code".format(auth_code, client_id,
                                                                                            client_secret)
@@ -35,9 +55,11 @@ def get_token(client_id, client_secret, auth_code):
     res = conn.getresponse()
     data = res.read()
     token_data = json.loads(data.decode("utf-8"))
+    print(token_data)
     if 'access_token' in token_data:
         token = token_data['access_token']
-        write_token_to_file(token)
+        if not is_lambda:
+            write_token_to_file(token)
         return token
     return None
 
@@ -60,8 +82,29 @@ def get_token():
     token = read_token_from_file()
     if token is None:
         read_config()
-        token = get_token(read_config())
+        try:
+            client_id, client_secret, auth_code = read_config()
+            token = get_token_from_nest(client_id, client_secret, auth_code)
+        except Exception as ex:
+            print("Unable to get token from Nest: {}".format(ex))
     return token
+
+def get_token_lambda(id):
+    client_id, client_secret, auth_code = read_config_from_dynamo(id)
+    token = get_token_from_nest(client_id, client_secret, auth_code, is_lambda=True)
+    return token
+
+def get_token_from_dynamo(id):
+    try:
+        dynamodb = boto3.resource('dynamodb')
+        table = dynamodb.Table('HomeTempConfig')
+        result = table.get_item(TableName='HomeTempConfig', Key={'id':id})
+        if 'Item' in result:
+            return result['Item']['token']
+    except Exception as ex:
+        print("Could not find record for id {}".format(id))
+    return None
+
 
 
 def read_data(token):
